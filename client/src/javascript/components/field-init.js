@@ -27,7 +27,8 @@ export function initInternationalPhoneField(scope = document) {
                     xhr.open('GET', field.getAttribute('data-apiurl'));
                     xhr.setRequestHeader("Accept", "application/json");
                     xhr.onload = function() {
-                        if (xhr.status === 200) {
+                        // ignore the reply if the field has been removed from the document in the meantime
+                        if (xhr.status === 200 && field.isConnected) {
                             var json = JSON.parse(xhr.responseText);
                             var countryCode = (json && json[field.getAttribute('data-apireplykey')]) ? json[field.getAttribute('data-apireplykey')] : "";
                             callback(countryCode);
@@ -80,12 +81,35 @@ export function initInternationalPhoneField(scope = document) {
 ;(function () {
 	'use strict';
 
-	if (document.readyState === "loading") { // Loading hasn't finished yet
-		document.addEventListener("DOMContentLoaded", function() {
-			initInternationalPhoneField();
+	// watch the document for phone number fields added after the initial page load, e.g. in popups or modals
+	const startObserver = function() {
+		var observer = new MutationObserver(function (mutations) {
+			mutations.forEach(function (mutation) {
+				Array.prototype.forEach.call(mutation.addedNodes, function (node) {
+					if (node.nodeType !== 1 || !node.isConnected) {
+						return;
+					}
+					if (node.matches('input.InternationalPhoneNumberField') || node.querySelector('input.InternationalPhoneNumberField')) {
+						initInternationalPhoneField(node);
+					}
+				});
+			});
 		});
-	} else { // `DOMContentLoaded` has already fired
+		observer.observe(document, { childList: true, subtree: true });
+	};
+
+	const initPage = function() {
 		initInternationalPhoneField();
+		// the observer is opt-in, the flag needs to be set before DOMContentLoaded fires
+		if (window.DoObserveInnowebIntlPhoneFields === true) {
+			startObserver();
+		}
+	};
+
+	if (document.readyState === "loading") { // Loading hasn't finished yet
+		document.addEventListener("DOMContentLoaded", initPage);
+	} else { // `DOMContentLoaded` has already fired
+		initPage();
 	}
 
 	if (window.jQuery && window.jQuery.fn.entwine) {
