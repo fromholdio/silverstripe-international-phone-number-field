@@ -1,82 +1,89 @@
 import intlTelInput from 'intl-tel-input';
 
+export function initInternationalPhoneField(scope = document) {
+
+	// init phone fields within the given scope, the scope being a field itself or a container
+	var fields;
+	if (scope.nodeType === 1 && scope.matches('input.InternationalPhoneNumberField')) {
+		fields = [scope];
+	} else {
+		fields = scope.querySelectorAll('input.InternationalPhoneNumberField');
+	}
+
+	Array.prototype.forEach.call(fields, function (field) {
+
+        var initialised = field.getAttribute('data-initialised');
+        if (typeof initialised !== 'undefined' && initialised !== null) {
+            return;
+        }
+
+		// define geo lookup function
+		var geoLookup = null;
+		var initialCountry = field.getAttribute('data-initialcountry');
+        if (typeof initialCountry === 'undefined' || initialCountry === 'auto') {
+            if (field.getAttribute('data-apiurl') && field.getAttribute('data-apiurl').length > 0) {
+                geoLookup = function(callback) {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', field.getAttribute('data-apiurl'));
+                    xhr.setRequestHeader("Accept", "application/json");
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            var json = JSON.parse(xhr.responseText);
+                            var countryCode = (json && json[field.getAttribute('data-apireplykey')]) ? json[field.getAttribute('data-apireplykey')] : "";
+                            callback(countryCode);
+                        }
+                    };
+                    xhr.send();
+                };
+            } else if (typeof window.loadCountryFromBrowserTimeZone === 'function') {
+                initialCountry = window.loadCountryFromBrowserTimeZone();
+            }
+        }
+
+		// create hidden field for data submission
+		var fieldname = field.getAttribute('name');
+		var hiddenField = document.createElement("input");
+		hiddenField.setAttribute('type', 'hidden');
+		hiddenField.setAttribute('name', fieldname);
+		hiddenField.setAttribute('value', field.value);
+		// rename visible field
+		field.setAttribute('name', fieldname + '_itl');
+		// insert hidden field
+		field.parentElement.appendChild(hiddenField);
+
+		var iti = intlTelInput(field, {
+			geoIpLookup: geoLookup,
+			initialCountry: initialCountry,
+			nationalMode: true,
+			onlyCountries: field.getAttribute('data-onlycountries') ? field.getAttribute('data-onlycountries').split('-') : [],
+			preferredCountries: field.getAttribute('data-preferredcountries') ? field.getAttribute('data-preferredcountries').split('-') : [],
+			excludeCountries: field.getAttribute('data-excludedcountries') ? field.getAttribute('data-excludedcountries').split('-') : [],
+			loadUtils: () => import(field.getAttribute('data-utilsscripturl'))
+		});
+
+		// Update hidden field value with phone number if correct, otherwise just copy value. Validation happens on server.
+		var handleChange = function() {
+			if (iti.isValidNumber(false)) {
+				hiddenField.value = iti.getNumber();
+			} else {
+				hiddenField.value = field.value.trim();
+			}
+		};
+		field.addEventListener('change', handleChange);
+		field.addEventListener('keyup', handleChange);
+		field.addEventListener('blur', handleChange);
+
+        field.setAttribute('data-initialised', true);
+	});
+}
+
 ;(function () {
 	'use strict';
 
-	const initInternationalPhoneField = function() {
-
-		// init phone fields
-		var fields = document.querySelectorAll('input.InternationalPhoneNumberField');
-
-		Array.prototype.forEach.call(fields, function (field) {
-
-            var initialised = field.getAttribute('data-initialised');
-            if (typeof initialised !== 'undefined' && initialised !== null) {
-                return;
-            }
-
-			// define geo lookup function
-			var geoLookup = null;
-			var initialCountry = field.getAttribute('data-initialcountry');
-            if (typeof initialCountry === 'undefined' || initialCountry === 'auto') {
-                if (field.getAttribute('data-apiurl') && field.getAttribute('data-apiurl').length > 0) {
-                    geoLookup = function(callback) {
-                        var xhr = new XMLHttpRequest();
-                        xhr.open('GET', field.getAttribute('data-apiurl'));
-                        xhr.setRequestHeader("Accept", "application/json");
-                        xhr.onload = function() {
-                            if (xhr.status === 200) {
-                                var json = JSON.parse(xhr.responseText);
-                                var countryCode = (json && json[field.getAttribute('data-apireplykey')]) ? json[field.getAttribute('data-apireplykey')] : "";
-                                callback(countryCode);
-                            }
-                        };
-                        xhr.send();
-                    };
-                } else if (typeof window.loadCountryFromBrowserTimeZone === 'function') {
-                    initialCountry = window.loadCountryFromBrowserTimeZone();
-                }
-            }
-
-			// create hidden field for data submission
-			var fieldname = field.getAttribute('name');
-			var hiddenField = document.createElement("input");
-			hiddenField.setAttribute('type', 'hidden');
-			hiddenField.setAttribute('name', fieldname);
-			hiddenField.setAttribute('value', field.value);
-			// rename visible field
-			field.setAttribute('name', fieldname + '_itl');
-			// insert hidden field
-			field.parentElement.appendChild(hiddenField);
-
-			var iti = intlTelInput(field, {
-				geoIpLookup: geoLookup,
-				initialCountry: initialCountry,
-				nationalMode: true,
-				onlyCountries: field.getAttribute('data-onlycountries') ? field.getAttribute('data-onlycountries').split('-') : [],
-				preferredCountries: field.getAttribute('data-preferredcountries') ? field.getAttribute('data-preferredcountries').split('-') : [],
-				excludeCountries: field.getAttribute('data-excludedcountries') ? field.getAttribute('data-excludedcountries').split('-') : [],
-				loadUtils: () => import(field.getAttribute('data-utilsscripturl'))
-			});
-
-			// Update hidden field value with phone number if correct, otherwise just copy value. Validation happens on server.
-			var handleChange = function() {
-				if (iti.isValidNumber(false)) {
-					hiddenField.value = iti.getNumber();
-				} else {
-					hiddenField.value = field.value.trim();
-				}
-			};
-			field.addEventListener('change', handleChange);
-			field.addEventListener('keyup', handleChange);
-			field.addEventListener('blur', handleChange);
-
-            field.setAttribute('data-initialised', true);
-		});
-	}
-
 	if (document.readyState === "loading") { // Loading hasn't finished yet
-		document.addEventListener("DOMContentLoaded", initInternationalPhoneField);
+		document.addEventListener("DOMContentLoaded", function() {
+			initInternationalPhoneField();
+		});
 	} else { // `DOMContentLoaded` has already fired
 		initInternationalPhoneField();
 	}
