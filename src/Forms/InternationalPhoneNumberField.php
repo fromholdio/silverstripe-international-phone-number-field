@@ -81,25 +81,6 @@ class InternationalPhoneNumberField extends TextField
     private static $excluded_countries = false;
 
     /**
-     * @config
-     * @var bool $observe_dynamic_fields Enable watching the page for phone number fields added after the initial
-     * page load (e.g. in popups or modals) and initialising them automatically. This is used by
-     * ObserveDynamicFieldsExtension applied to a page controller.
-     * Defaults to `false`.
-     */
-    private static $observe_dynamic_fields = false;
-
-    /**
-     * @config
-     * @var bool $add_observe_dynamic_fields_head_js Add the field requirements and the script enabling the observer
-     * to the page automatically when ObserveDynamicFieldsExtension is applied to a controller. Set this to `false`
-     * to add the scripts and the `window.DoObserveInnowebIntlPhoneFields` flag to your templates manually.
-     * This is only used if `observe_dynamic_fields` is `true`.
-     * Defaults to `true`.
-     */
-    private static $add_observe_dynamic_fields_head_js = true;
-
-    /**
      * @var string
      */
     protected $initialCountry;
